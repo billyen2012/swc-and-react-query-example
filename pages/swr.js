@@ -1,5 +1,5 @@
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { faker } from "@faker-js/faker";
+import useSWR, { useSWRConfig } from "swr";
 
 /**
  * @typedef {{
@@ -23,16 +23,14 @@ const cardStyle = {
 
 const toolbarStyle = {
   display: "flex",
-  alignItems: "center",
   justifyContent: "flex-end",
   padding: "8px",
-  gap: "8px",
 };
 
 /**@return {Promise<Post[]>} */
 const getPost = async () => {
   return fetch("/api/posts").then((res) => res.json());
-  //for error handling, please refer to https://react-query-v3.tanstack.com/guides/query-functions
+  //for error handling, please refer to https://swr.vercel.app/docs/error-handling
 };
 
 const addPost = async (data) => {
@@ -46,49 +44,32 @@ const addPost = async (data) => {
 };
 
 export default function Home() {
-  const queryClient = useQueryClient();
-  const mutation = useMutation(addPost, {
-    onSuccess: () => {
-      // Invalidate and refetch
-      queryClient.invalidateQueries(["posts"]);
-    },
-  });
-  const { isLoading, error, data } = useQuery(["posts"], getPost);
+  const { data, error } = useSWR("posts", getPost);
+
+  const { mutate } = useSWRConfig();
 
   // Mutations
-  const handleClick = () => {
-    mutation.mutate({
+  const handleClick = async () => {
+    const response = await addPost({
       title: faker.company.name(),
       body: faker.lorem.paragraph(),
       name: faker.name.fullName(),
     });
+
+    if (response.ok) mutate("posts");
   };
 
-  if (isLoading) return <div style={containerStyle}>...loading</div>;
+  if (!data) return <div style={containerStyle}>...loading</div>;
   if (error) return <div style={containerStyle}>error</div>;
 
   return (
     <div style={containerStyle}>
-      <h1>
-        React-Query (To{" "}
-        <a
-          target="_blank"
-          href="/swr"
-          style={{
-            color: "#1111ff",
-            fontWeight: "bold",
-            textDecoration: "underline",
-          }}
-        >
-          SWR Page
-        </a>
-        )
-      </h1>
+      <h1>SWR</h1>
       <hr />
       <div style={toolbarStyle}>
         <button onClick={handleClick}>ADD POST</button>
       </div>
-      <div>POST count: {data.length}</div>
+      POST count: {data.length}
       {data.length == 0
         ? "No Data"
         : data.map(({ name, title, body }, index) => {
